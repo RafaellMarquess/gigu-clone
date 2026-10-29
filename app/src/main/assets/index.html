@@ -69,7 +69,9 @@ input:focus{outline:none;border-color:#FF6B00}
   <div class="card">
     <div class="kv"><span>Pacotes vistos</span><b id="dPac">—</b></div>
     <div class="kv"><span>Janelas / nós</span><b id="dJan">—</b></div>
-    <div class="kv"><span>Candidatos "R$"</span><b id="dBru">—</b></div>
+    <div class="kv"><span>"R$ X,XX" junto</span><b id="dBru">—</b></div>
+    <div class="kv"><span>Símbolo "R$" separado</span><b id="dSim">—</b></div>
+    <div class="kv"><span>Números soltos</span><b id="dSol">—</b></div>
     <div class="kv"><span>Última varredura</span><b id="dMom">—</b></div>
   </div>
   <div class="card"><div style="padding:11px 14px;font-size:11.5px;color:#8A9AB4;word-break:break-word" id="dTxt">Nenhum texto capturado ainda.</div></div>
@@ -135,6 +137,8 @@ setInterval(function(){
     $('dPac').textContent = d.pacotes || '(nenhum ainda)';
     $('dJan').textContent = (d.janelas >= 0 ? d.janelas : '—') + ' / ' + (d.nos >= 0 ? d.nos : '—');
     $('dBru').textContent = d.brutos >= 0 ? d.brutos : '—';
+    $('dSim').textContent = d.simbolos >= 0 ? d.simbolos : '—';
+    $('dSol').textContent = d.soltos >= 0 ? d.soltos : '—';
     var seg = d.momento ? Math.floor((Date.now() - d.momento) / 1000) : null;
     $('dMom').textContent = seg === null ? 'nunca' : (seg + 's atrás');
     $('dTxt').textContent = d.textos && d.textos.length ? d.textos : 'Nenhum texto com "R$" capturado ainda.';

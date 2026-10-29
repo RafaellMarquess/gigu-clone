@@ -140,6 +140,8 @@ class MainActivity : AppCompatActivity() {
             obj.put("janelas", p.getInt("diagJanelas", -1))
             obj.put("nos", p.getInt("diagNos", -1))
             obj.put("brutos", p.getInt("diagBrutos", -1))
+            obj.put("simbolos", p.getInt("diagSimbolos", -1))
+            obj.put("soltos", p.getInt("diagSoltos", -1))
             obj.put("textos", p.getString("diagTextos", "") ?: "")
             obj.put("momento", p.getLong("diagMomento", 0L))
             return obj.toString()

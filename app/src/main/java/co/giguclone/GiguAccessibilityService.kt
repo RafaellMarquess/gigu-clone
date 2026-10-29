@@ -35,6 +35,7 @@ class GiguAccessibilityService : AccessibilityService() {
             "R\\$\\s*([0-9]{1,3}(?:\\.[0-9]{3})*,[0-9]{2}|[0-9]{1,4}(?:[.,][0-9]{2}))"
         )
         private val RE_SOLTO = Regex("^([0-9]{1,3}[.,][0-9]{2})$")
+        private val RE_SIMBOLO = Regex("^R\\$:?$")
         private val RE_KM = Regex(
             "([0-9]{1,3}(?:[.,][0-9]{1,2})?)\\s*(?:km|quilometros|quilômetros)",
             RegexOption.IGNORE_CASE
@@ -128,12 +129,19 @@ class GiguAccessibilityService : AccessibilityService() {
 
         // Diagnóstico: quantas janelas/nós foram varridos nesta rodada, e quais
         // nós "parecem" dinheiro antes de qualquer filtro de lixo/faixa/posição.
+        // Cobre os 3 níveis de detecção: "R$ X,XX" junto, símbolo "R$" separado
+        // do número, e números soltos sem símbolo nenhum.
         val brutos = nos.filter { RE_DINHEIRO.containsMatchIn(it.texto) }
+        val simbolosVistos = nos.filter { RE_SIMBOLO.matches(it.texto.trim()) }
+        val soltosVistos = nos.filter { RE_SOLTO.matches(it.texto.trim()) }
+        val amostra = (brutos + simbolosVistos + soltosVistos).distinct()
         prefs.edit()
             .putInt("diagJanelas", janelasAbertas?.size ?: 0)
             .putInt("diagNos", nos.size)
             .putInt("diagBrutos", brutos.size)
-            .putString("diagTextos", brutos.take(5).joinToString(" / ") { it.texto.take(40) })
+            .putInt("diagSimbolos", simbolosVistos.size)
+            .putInt("diagSoltos", soltosVistos.size)
+            .putString("diagTextos", amostra.take(6).joinToString(" / ") { it.texto.take(40) })
             .putLong("diagMomento", System.currentTimeMillis())
             .apply()
 
@@ -148,8 +156,25 @@ class GiguAccessibilityService : AccessibilityService() {
         val raio = dp(300)
         val raioLateral = dp(90)
 
+        fun pontuar(no: No, bonusExtra: Double): Double {
+            val vizinhos = nos.count { outro ->
+                (RE_KM.containsMatchIn(outro.texto) || RE_MIN.containsMatchIn(outro.texto)) &&
+                    abs(outro.centroY - no.centroY) <= raio
+            }
+            val puro = RE_PURO.matches(no.texto.trim())
+            var pontos = vizinhos * 12.0
+            if (puro) pontos += 8.0
+            pontos += min(no.altura, dp(80)) / dp(10).toDouble()
+            pontos -= abs(no.centroY - alturaTela / 2) / (alturaTela * 0.12)
+            pontos -= abs(no.x + no.largura / 2 - larguraTela / 2) / (larguraTela * 0.35)
+            if (no.centroY < faixaTopo) pontos -= 10.0
+            pontos += bonusExtra
+            return pontos
+        }
+
         val dinheiro = ArrayList<Candidato>()
 
+        // Nível 1: "R$ 12,50" inteiro no mesmo nó de texto (caso comum).
         for (no in nos) {
             if (RE_LIXO.containsMatchIn(no.texto)) continue
             if (no.centroY < faixaTopo * 0.5) continue
@@ -158,21 +183,40 @@ class GiguAccessibilityService : AccessibilityService() {
             val valor = converter(achado.groupValues[1]) ?: continue
             if (valor < 2.0 || valor > 500.0) continue
 
-            val vizinhos = nos.count { outro ->
-                (RE_KM.containsMatchIn(outro.texto) || RE_MIN.containsMatchIn(outro.texto)) &&
-                    abs(outro.centroY - no.centroY) <= raio
+            dinheiro.add(Candidato(valor, no, pontuar(no, 0.0)))
+        }
+
+        // Nível 2: símbolo "R$" e o número vêm em nós separados (comum em telas
+        // que estilizam o símbolo menor que o valor). Casa um nó "R$" com um
+        // nó de número solto bem próximo (mesma linha).
+        if (dinheiro.isEmpty()) {
+            val simbolos = nos.filter { RE_SIMBOLO.matches(it.texto.trim()) }
+            val soltos = nos.filter { RE_SOLTO.matches(it.texto.trim()) }
+            for (simbolo in simbolos) {
+                val par = soltos
+                    .filter { abs(it.centroY - simbolo.centroY) <= dp(20) }
+                    .minByOrNull { abs(it.x - (simbolo.x + simbolo.largura)) } ?: continue
+                val valor = converter(par.texto.trim()) ?: continue
+                if (valor < 2.0 || valor > 500.0) continue
+                dinheiro.add(Candidato(valor, par, pontuar(par, 6.0)))
             }
+        }
 
-            val puro = RE_PURO.matches(no.texto.trim())
-
-            var pontos = vizinhos * 12.0
-            if (puro) pontos += 8.0
-            pontos += min(no.altura, dp(80)) / dp(10).toDouble()
-            pontos -= abs(no.centroY - alturaTela / 2) / (alturaTela * 0.12)
-            pontos -= abs(no.x + no.largura / 2 - larguraTela / 2) / (larguraTela * 0.35)
-            if (no.centroY < faixaTopo) pontos -= 10.0
-
-            dinheiro.add(Candidato(valor, no, pontos))
+        // Nível 3: nenhum símbolo "R$" em texto (pode ser ícone/imagem). Aceita
+        // um número solto plausível, mas só se tiver km ou min por perto —
+        // evidência de que é uma oferta de corrida, não avaliação/outro número.
+        if (dinheiro.isEmpty()) {
+            for (no in nos) {
+                if (!RE_SOLTO.matches(no.texto.trim())) continue
+                val valor = converter(no.texto.trim()) ?: continue
+                if (valor < 2.0 || valor > 500.0) continue
+                val temVizinho = nos.any { outro ->
+                    (RE_KM.containsMatchIn(outro.texto) || RE_MIN.containsMatchIn(outro.texto)) &&
+                        abs(outro.centroY - no.centroY) <= raio
+                }
+                if (!temVizinho) continue
+                dinheiro.add(Candidato(valor, no, pontuar(no, -4.0)))
+            }
         }
 
         val escolhido = dinheiro.maxByOrNull { it.pontos } ?: run {
