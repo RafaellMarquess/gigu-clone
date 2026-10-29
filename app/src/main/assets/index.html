@@ -134,18 +134,6 @@ function calc(){
 }
 $('v').oninput = calc; $('k').oninput = calc; $('m').oninput = calc;
 
-// Leitura automática via Acessibilidade do Android
-setInterval(function(){
-  if (window.Android && window.Android.lerDadosTela) {
-    var resp = window.Android.lerDadosTela();
-    var partes = resp.split('|');
-    var val = partes[0];
-    var km = partes[1];
-    if (val && val !== $('v').value) { $('v').value = val; calc(); }
-    if (km && km !== $('k').value) { $('k').value = km; calc(); }
-  }
-}, 1000);
-
 var stream = null, rec = null, chunks = [], t0 = 0, tick = null, oculta = false;
 
 $('bOc').onclick = function(){
@@ -227,8 +215,8 @@ window.ofertaRecebida = function (valor, km, min) {
     return false;
   }
 
-  preencher(['v', 'valor', 'valorCapturado'], valor);
-  preencher(['k', 'km', 'distancia'], km);
+  preencher(['v', 'valor', 'valorCapturado'], valor.replace(',', '.'));
+  preencher(['k', 'km', 'distancia'], km.replace(',', '.'));
   preencher(['m', 'min', 'tempo'], min);
 
   var cap = document.getElementById('capturado');
