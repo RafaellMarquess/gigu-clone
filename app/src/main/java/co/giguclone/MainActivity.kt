@@ -143,6 +143,7 @@ class MainActivity : AppCompatActivity() {
             obj.put("simbolos", p.getInt("diagSimbolos", -1))
             obj.put("soltos", p.getInt("diagSoltos", -1))
             obj.put("textos", p.getString("diagTextos", "") ?: "")
+            obj.put("dump", p.getString("diagDump", "") ?: "")
             obj.put("momento", p.getLong("diagMomento", 0L))
             return obj.toString()
         }

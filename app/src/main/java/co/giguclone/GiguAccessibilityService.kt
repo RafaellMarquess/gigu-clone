@@ -135,6 +135,11 @@ class GiguAccessibilityService : AccessibilityService() {
         val simbolosVistos = nos.filter { RE_SIMBOLO.matches(it.texto.trim()) }
         val soltosVistos = nos.filter { RE_SOLTO.matches(it.texto.trim()) }
         val amostra = (brutos + simbolosVistos + soltosVistos).distinct()
+        // Dump bruto: TODOS os textos vistos nesta rodada, sem filtro nenhum,
+        // pra confirmar se o popup de oferta tem algum texto legível ou se
+        // está totalmente fora da árvore de acessibilidade (ex: desenhado
+        // como imagem/canvas, não como view de texto nativa).
+        val dumpTudo = nos.map { it.texto.take(28).replace("\n", " ") }.distinct()
         prefs.edit()
             .putInt("diagJanelas", janelasAbertas?.size ?: 0)
             .putInt("diagNos", nos.size)
@@ -142,6 +147,7 @@ class GiguAccessibilityService : AccessibilityService() {
             .putInt("diagSimbolos", simbolosVistos.size)
             .putInt("diagSoltos", soltosVistos.size)
             .putString("diagTextos", amostra.take(6).joinToString(" / ") { it.texto.take(40) })
+            .putString("diagDump", dumpTudo.take(40).joinToString(" | "))
             .putLong("diagMomento", System.currentTimeMillis())
             .apply()
 
