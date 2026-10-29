@@ -62,6 +62,17 @@ input:focus{outline:none;border-color:#FF6B00}
   <div class="row"><div class="txt"><div class="t">Copiloto</div><div class="s">Ativar automação</div></div><button class="tg" id="tCop"></button></div>
   <div class="row"><div class="txt"><div class="t">Cálculo de Ganhos</div><div class="s">Automático por km</div></div><button class="tg" id="tCalc"></button></div>
   <div class="row"><div class="txt"><div class="t">Câmera Secreta</div><div class="s">Gravação em segundo plano</div></div><button class="tg" id="tCam"></button></div>
+  <div class="row"><div class="txt"><div class="t">Diagnóstico</div><div class="s">Ver o que a leitura automática está captando</div></div><button class="tg" id="tDiag"></button></div>
+</div>
+
+<div id="secDiag" class="hide">
+  <div class="card">
+    <div class="kv"><span>Pacotes vistos</span><b id="dPac">—</b></div>
+    <div class="kv"><span>Janelas / nós</span><b id="dJan">—</b></div>
+    <div class="kv"><span>Candidatos "R$"</span><b id="dBru">—</b></div>
+    <div class="kv"><span>Última varredura</span><b id="dMom">—</b></div>
+  </div>
+  <div class="card"><div style="padding:11px 14px;font-size:11.5px;color:#8A9AB4;word-break:break-word" id="dTxt">Nenhum texto capturado ainda.</div></div>
 </div>
 
 <div id="secCalc" class="hide">
@@ -93,7 +104,7 @@ input:focus{outline:none;border-color:#FF6B00}
 
 <script>
 var st = JSON.parse(localStorage.getItem('gigu') || '{}');
-st = Object.assign({cop:false,calc:false,cam:false,custoKm:1.2,metaKm:1.8,metaH:25,clips:[]}, st);
+st = Object.assign({cop:false,calc:false,cam:false,diag:false,custoKm:1.2,metaKm:1.8,metaH:25,clips:[]}, st);
 function save(){ localStorage.setItem('gigu', JSON.stringify(st)); }
 function brl(n){ return 'R$ ' + (isFinite(n) ? n.toFixed(2).replace('.', ',') : '0,00'); }
 function $(i){ return document.getElementById(i); }
@@ -102,8 +113,10 @@ function pintar(){
   $('tCop').className = 'tg' + (st.cop ? ' on' : '');
   $('tCalc').className = 'tg' + (st.calc ? ' on' : '');
   $('tCam').className = 'tg' + (st.cam ? ' on' : '');
+  $('tDiag').className = 'tg' + (st.diag ? ' on' : '');
   $('secCalc').className = (st.cop && st.calc) ? '' : 'hide';
   $('secCam').className = (st.cop && st.cam) ? '' : 'hide';
+  $('secDiag').className = st.diag ? '' : 'hide';
   $('lc').textContent = brl(st.custoKm);
   $('lk').textContent = brl(st.metaKm);
   $('lh').textContent = brl(st.metaH);
@@ -113,6 +126,20 @@ function pintar(){
 $('tCop').onclick = function(){ st.cop = !st.cop; save(); pintar(); };
 $('tCalc').onclick = function(){ st.calc = !st.calc; save(); pintar(); };
 $('tCam').onclick = function(){ st.cam = !st.cam; save(); pintar(); };
+$('tDiag').onclick = function(){ st.diag = !st.diag; save(); pintar(); };
+
+setInterval(function(){
+  if (!st.diag || !window.Android || !window.Android.diagnostico) return;
+  try {
+    var d = JSON.parse(window.Android.diagnostico());
+    $('dPac').textContent = d.pacotes || '(nenhum ainda)';
+    $('dJan').textContent = (d.janelas >= 0 ? d.janelas : '—') + ' / ' + (d.nos >= 0 ? d.nos : '—');
+    $('dBru').textContent = d.brutos >= 0 ? d.brutos : '—';
+    var seg = d.momento ? Math.floor((Date.now() - d.momento) / 1000) : null;
+    $('dMom').textContent = seg === null ? 'nunca' : (seg + 's atrás');
+    $('dTxt').textContent = d.textos && d.textos.length ? d.textos : 'Nenhum texto com "R$" capturado ainda.';
+  } catch (e) {}
+}, 1000);
 
 function calc(){
   var v = parseFloat($('v').value) || 0;

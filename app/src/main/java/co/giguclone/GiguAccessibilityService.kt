@@ -87,9 +87,26 @@ class GiguAccessibilityService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val pacote = event?.packageName?.toString() ?: return
+
+        // Diagnóstico: registra TODO pacote visto, mesmo fora da whitelist,
+        // pra dar pra descobrir no app se o popup é de um pacote diferente
+        // do esperado (ex: processo separado do app principal).
+        registrarPacoteVisto(pacote)
+
         if (pacote !in PACOTES) return
         principal.removeCallbacks(tarefaVarrer)
         principal.postDelayed(tarefaVarrer, 200)
+    }
+
+    private fun registrarPacoteVisto(pacote: String) {
+        val atuais = prefs.getString("diagPacotes", "") ?: ""
+        val lista = atuais.split(",").filter { it.isNotBlank() }.toMutableList()
+        if (lista.remove(pacote)) {
+            // já visto: só reordena pra frente
+        }
+        lista.add(0, pacote)
+        val recorte = lista.distinct().take(6)
+        prefs.edit().putString("diagPacotes", recorte.joinToString(",")).apply()
     }
 
     private fun varrer() {
@@ -108,6 +125,17 @@ class GiguAccessibilityService : AccessibilityService() {
             val raiz = rootInActiveWindow ?: return
             coletar(raiz, nos, 0)
         }
+
+        // Diagnóstico: quantas janelas/nós foram varridos nesta rodada, e quais
+        // nós "parecem" dinheiro antes de qualquer filtro de lixo/faixa/posição.
+        val brutos = nos.filter { RE_DINHEIRO.containsMatchIn(it.texto) }
+        prefs.edit()
+            .putInt("diagJanelas", janelasAbertas?.size ?: 0)
+            .putInt("diagNos", nos.size)
+            .putInt("diagBrutos", brutos.size)
+            .putString("diagTextos", brutos.take(5).joinToString(" / ") { it.texto.take(40) })
+            .putLong("diagMomento", System.currentTimeMillis())
+            .apply()
 
         if (nos.isEmpty()) return
 

@@ -133,6 +133,19 @@ class MainActivity : AppCompatActivity() {
         fun acessibilidadeAtiva(): Boolean = acessibilidadeLigada()
 
         @JavascriptInterface
+        fun diagnostico(): String {
+            val p = getSharedPreferences("gigu", Context.MODE_PRIVATE)
+            val obj = JSONObject()
+            obj.put("pacotes", p.getString("diagPacotes", "") ?: "")
+            obj.put("janelas", p.getInt("diagJanelas", -1))
+            obj.put("nos", p.getInt("diagNos", -1))
+            obj.put("brutos", p.getInt("diagBrutos", -1))
+            obj.put("textos", p.getString("diagTextos", "") ?: "")
+            obj.put("momento", p.getLong("diagMomento", 0L))
+            return obj.toString()
+        }
+
+        @JavascriptInterface
         fun abrirAcessibilidade() {
             runOnUiThread {
                 startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
