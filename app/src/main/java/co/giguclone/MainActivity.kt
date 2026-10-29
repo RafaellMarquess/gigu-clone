@@ -2,11 +2,13 @@ package co.giguclone
 
 import android.Manifest
 import android.content.ContentValues
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
+import android.provider.Settings
 import android.util.Base64
 import android.webkit.JavascriptInterface
 import android.webkit.PermissionRequest
@@ -33,6 +35,15 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(estado: Bundle?) {
         super.onCreate(estado)
+
+        // Verificar permissão de sobreposição (Janela Flutuante)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+            val intent = Intent(
+                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:$packageName")
+            )
+            startActivity(intent)
+        }
 
         web = WebView(this)
         web.setBackgroundColor(0xFF070D1A.toInt())
