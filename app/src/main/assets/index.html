@@ -213,5 +213,39 @@ function add(nome, dur){
 pintar();
 if (st.clips.length) add('', '');
 </script>
+  <script>
+window.ofertaRecebida = function (valor, km, min) {
+  function preencher(chaves, v) {
+    for (var i = 0; i < chaves.length; i++) {
+      var el = document.getElementById(chaves[i]);
+      if (el) {
+        el.value = v;
+        el.dispatchEvent(new Event('input'));
+        return true;
+      }
+    }
+    return false;
+  }
+
+  preencher(['v', 'valor', 'valorCapturado'], valor);
+  preencher(['k', 'km', 'distancia'], km);
+  preencher(['m', 'min', 'tempo'], min);
+
+  var cap = document.getElementById('capturado');
+  if (cap) cap.textContent = 'R$ ' + valor + ' · ' + km + ' km';
+
+  if (typeof calc === 'function') calc();
+  if (typeof pintar === 'function') pintar();
+  if (typeof atualizar === 'function') atualizar();
+};
+
+if (window.Android && window.Android.acessibilidadeAtiva) {
+  setInterval(function () {
+    var aviso = document.getElementById('avisoAcess');
+    if (!aviso) return;
+    aviso.style.display = window.Android.acessibilidadeAtiva() ? 'none' : 'block';
+  }, 1500);
+}
+</script>
 </body>
 </html>
