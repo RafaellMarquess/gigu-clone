@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">GigU</string>
+    <string name="accessibility_desc">O GigU le os valores e distancias das ofertas na tela do aplicativo de corridas para calcular o ganho liquido e mostrar o card flutuante. Nenhum dado sai do aparelho.</string>
 </resources>
