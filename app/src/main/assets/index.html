@@ -55,22 +55,22 @@ input:focus{outline:none;border-color:#FF6B00}
 </style>
 </head>
 <body>
-<header><div class="logo">GigU</div></header>
-<div class="banner"><h2>Tudo liberado</h2><p>Sem assinatura. Cálculo e câmera sempre ligados.</p></div>
+<header><div class="logo">GigU <span style="font-size:12px;color:#7C8CA6">Auto</span></div></header>
+<div class="banner"><h2>Leitura Automática</h2><p>Abra a Uber ou 99. Os valores entram sozinhos.</p></div>
 
 <div class="card">
-  <div class="row"><div class="txt"><div class="t">Copiloto</div><div class="s">Ative para usar os recursos</div></div><button class="tg" id="tCop"></button></div>
-  <div class="row"><div class="txt"><div class="t">Cálculo de Ganhos</div><div class="s">Líquido por km e por hora</div></div><button class="tg" id="tCalc"></button></div>
-  <div class="row"><div class="txt"><div class="t">Câmera Secreta</div><div class="s">Grava com prévia oculta</div></div><button class="tg" id="tCam"></button></div>
+  <div class="row"><div class="txt"><div class="t">Copiloto</div><div class="s">Ativar automação</div></div><button class="tg" id="tCop"></button></div>
+  <div class="row"><div class="txt"><div class="t">Cálculo de Ganhos</div><div class="s">Automático por km</div></div><button class="tg" id="tCalc"></button></div>
+  <div class="row"><div class="txt"><div class="t">Câmera Secreta</div><div class="s">Gravação em segundo plano</div></div><button class="tg" id="tCam"></button></div>
 </div>
 
 <div id="secCalc" class="hide">
   <div id="res"></div>
   <div class="g2">
-    <div><label>Valor da oferta</label><input id="v" type="number" inputmode="decimal" placeholder="0,00"></div>
-    <div><label>Minutos</label><input id="m" type="number" inputmode="decimal" placeholder="0"></div>
+    <div><label>Valor capturado</label><input id="v" type="number" inputmode="decimal" placeholder="Aguardando..."></div>
+    <div><label>Minutos</label><input id="m" type="number" inputmode="decimal" placeholder="1"></div>
   </div>
-  <label>Distância total (km)</label><input id="k" type="number" inputmode="decimal" placeholder="0">
+  <label>Distância capturada (km)</label><input id="k" type="number" inputmode="decimal" placeholder="Aguardando...">
   <div class="card">
     <div class="kv"><span>Custo por km</span><b id="lc"></b></div>
     <div class="kv"><span>Meta por km</span><b id="lk"></b></div>
@@ -89,7 +89,7 @@ input:focus{outline:none;border-color:#FF6B00}
   <div class="card" id="lista"></div>
 </div>
 
-<p class="foot">1.0 · sem assinatura</p>
+<p class="foot">1.1 · auto-leitura</p>
 
 <script>
 var st = JSON.parse(localStorage.getItem('gigu') || '{}');
@@ -117,7 +117,7 @@ $('tCam').onclick = function(){ st.cam = !st.cam; save(); pintar(); };
 function calc(){
   var v = parseFloat($('v').value) || 0;
   var km = parseFloat($('k').value) || 0;
-  var mn = parseFloat($('m').value) || 0;
+  var mn = parseFloat($('m').value) || 1;
   if (!v || !km) { $('res').innerHTML = ''; return; }
   var custo = km * st.custoKm;
   var liq = v - custo;
@@ -133,6 +133,18 @@ function calc(){
     '<div class="kv"><span>Por hora</span><b>' + (mn ? brl(ph) : '—') + '</b></div></div>';
 }
 $('v').oninput = calc; $('k').oninput = calc; $('m').oninput = calc;
+
+// Leitura automática via Acessibilidade do Android
+setInterval(function(){
+  if (window.Android && window.Android.lerDadosTela) {
+    var resp = window.Android.lerDadosTela();
+    var partes = resp.split('|');
+    var val = partes[0];
+    var km = partes[1];
+    if (val && val !== $('v').value) { $('v').value = val; calc(); }
+    if (km && km !== $('k').value) { $('k').value = km; calc(); }
+  }
+}, 1000);
 
 var stream = null, rec = null, chunks = [], t0 = 0, tick = null, oculta = false;
 
