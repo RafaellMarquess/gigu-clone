@@ -4,6 +4,7 @@ import android.accessibilityservice.AccessibilityService
 import android.content.Context
 import android.graphics.Color
 import android.graphics.PixelFormat
+import android.graphics.Rect
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Handler
@@ -15,6 +16,8 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.LinearLayout
 import android.widget.TextView
+import kotlin.math.abs
+import kotlin.math.min
 
 class GiguAccessibilityService : AccessibilityService() {
 
@@ -29,8 +32,9 @@ class GiguAccessibilityService : AccessibilityService() {
         )
 
         private val RE_DINHEIRO = Regex(
-            "R\\$\\s*([0-9]{1,3}(?:\\.[0-9]{3})*,[0-9]{2}|[0-9]+(?:[.,][0-9]{2})?)"
+            "R\\$\\s*([0-9]{1,3}(?:\\.[0-9]{3})*,[0-9]{2}|[0-9]{1,4}(?:[.,][0-9]{2}))"
         )
+        private val RE_SOLTO = Regex("^([0-9]{1,3}[.,][0-9]{2})$")
         private val RE_KM = Regex(
             "([0-9]{1,3}(?:[.,][0-9]{1,2})?)\\s*(?:km|quilometros|quilômetros)",
             RegexOption.IGNORE_CASE
@@ -39,7 +43,24 @@ class GiguAccessibilityService : AccessibilityService() {
             "([0-9]{1,3})\\s*(?:min|minutos?)",
             RegexOption.IGNORE_CASE
         )
+        private val RE_LIXO = Regex(
+            "saldo|carteira|ganhos|hoje|semana|conta|promo|cash|taxa|total",
+            RegexOption.IGNORE_CASE
+        )
+        private val RE_PURO = Regex("^R?\\$?\\s*[0-9.,]+$")
     }
+
+    private data class No(
+        val texto: String,
+        val x: Int,
+        val y: Int,
+        val largura: Int,
+        val altura: Int
+    ) {
+        val centroY: Int get() = y + altura / 2
+    }
+
+    private data class Candidato(val valor: Double, val no: No, val pontos: Double)
 
     private val principal = Handler(Looper.getMainLooper())
     private val tarefaVarrer = Runnable { varrer() }
@@ -51,7 +72,11 @@ class GiguAccessibilityService : AccessibilityService() {
     private var tvDetalhe: TextView? = null
     private var tvVeredito: TextView? = null
     private var tvTaxas: TextView? = null
-    private var ultimaAssinatura = ""
+    private var tvDebug: TextView? = null
+
+    private var tentativas = 0
+    private var ultimoPublicado = ""
+    private var momentoPublicado = 0L
 
     private val prefs by lazy { getSharedPreferences("gigu", Context.MODE_PRIVATE) }
 
@@ -64,54 +89,127 @@ class GiguAccessibilityService : AccessibilityService() {
         val pacote = event?.packageName?.toString() ?: return
         if (pacote !in PACOTES) return
         principal.removeCallbacks(tarefaVarrer)
-        principal.postDelayed(tarefaVarrer, 220)
+        principal.postDelayed(tarefaVarrer, 200)
     }
 
     private fun varrer() {
         val raiz = rootInActiveWindow ?: return
-        val textos = ArrayList<String>()
-        coletar(raiz, textos, 0)
-        if (textos.isEmpty()) return
 
-        val bruto = textos.joinToString(" | ")
-        if (!bruto.contains("R$")) return
+        val nos = ArrayList<No>()
+        coletar(raiz, nos, 0)
+        if (nos.isEmpty()) return
 
-        val assinatura = bruto.hashCode().toString()
-        if (assinatura == ultimaAssinatura) return
-        ultimaAssinatura = assinatura
+        val tela = resources.displayMetrics
+        val alturaTela = tela.heightPixels
+        val larguraTela = tela.widthPixels
+        if (alturaTela <= 0) return
 
-        val valor = extrairMaior(RE_DINHEIRO, bruto, 2.0, 500.0) ?: return
-        val km = extrairMaior(RE_KM, bruto, 0.1, 200.0) ?: 0.0
-        val min = extrairMaior(RE_MIN, bruto, 0.0, 240.0) ?: 0.0
+        val faixaTopo = (alturaTela * 0.12).toInt()
+        val raio = dp(300)
+        val raioLateral = dp(90)
 
-        val valorTxt = String.format("%.2f", valor).replace(".", ",")
-        val kmTxt = String.format("%.1f", km).replace(".", ",")
-        val minTxt = String.format("%.0f", min)
+        val dinheiro = ArrayList<Candidato>()
+
+        for (no in nos) {
+            if (RE_LIXO.containsMatchIn(no.texto)) continue
+            if (no.centroY < faixaTopo * 0.5) continue
+
+            val achado = RE_DINHEIRO.find(no.texto) ?: continue
+            val valor = converter(achado.groupValues[1]) ?: continue
+            if (valor < 2.0 || valor > 500.0) continue
+
+            val vizinhos = nos.count { outro ->
+                (RE_KM.containsMatchIn(outro.texto) || RE_MIN.containsMatchIn(outro.texto)) &&
+                    abs(outro.centroY - no.centroY) <= raio
+            }
+
+            val puro = RE_PURO.matches(no.texto.trim())
+
+            var pontos = vizinhos * 12.0
+            if (puro) pontos += 8.0
+            pontos += min(no.altura, dp(80)) / dp(10).toDouble()
+            pontos -= abs(no.centroY - alturaTela / 2) / (alturaTela * 0.12)
+            pontos -= abs(no.x + no.largura / 2 - larguraTela / 2) / (larguraTela * 0.35)
+            if (no.centroY < faixaTopo) pontos -= 10.0
+
+            dinheiro.add(Candidato(valor, no, pontos))
+        }
+
+        val escolhido = dinheiro.maxByOrNull { it.pontos } ?: run {
+            tentativas = 0
+            return
+        }
+
+        val kmTotal = somarVizinhos(nos, escolhido.no.centroY, raio, raioLateral, RE_KM, 0.1, 200.0)
+        val minTotal = somarVizinhos(nos, escolhido.no.centroY, raio, raioLateral, RE_MIN, 0.0, 240.0)
+
+        val valorTxt = String.format("%.2f", escolhido.valor).replace(".", ",")
+        val kmTxt = String.format("%.1f", kmTotal).replace(".", ",")
+        val minTxt = String.format("%.0f", minTotal)
+
+        tentativas++
+        val marca = "$valorTxt|$kmTxt|$minTxt"
+        if (tentativas < 2) {
+            principal.removeCallbacks(tarefaVarrer)
+            principal.postDelayed(tarefaVarrer, 320)
+            return
+        }
+        tentativas = 0
+
+        val agora = System.currentTimeMillis()
+        if (marca == ultimoPublicado && agora - momentoPublicado < 2500) return
+        ultimoPublicado = marca
+        momentoPublicado = agora
 
         aoReceber?.invoke(valorTxt, kmTxt, minTxt)
 
         if (prefs.getBoolean("overlay", true)) {
-            mostrarCard(valor, km, min, valorTxt, kmTxt, minTxt)
+            mostrarCard(
+                escolhido.valor, kmTotal, minTotal, valorTxt, kmTxt, minTxt,
+                escolhido.no.texto
+            )
         }
     }
 
-    private fun coletar(node: AccessibilityNodeInfo?, saida: MutableList<String>, nivel: Int) {
-        if (node == null || nivel > 25) return
-        node.text?.toString()?.let { if (it.isNotBlank()) saida.add(it) }
-        node.contentDescription?.toString()?.let { if (it.isNotBlank()) saida.add(it) }
+    private fun coletar(node: AccessibilityNodeInfo?, saida: MutableList<No>, nivel: Int) {
+        if (node == null || nivel > 30) return
+
+        val texto = node.text?.toString()
+        if (!texto.isNullOrBlank()) {
+            val retangulo = Rect()
+            node.getBoundsInScreen(retangulo)
+            if (retangulo.width() > 0 && retangulo.height() > 0) {
+                saida.add(
+                    No(texto, retangulo.left, retangulo.top, retangulo.width(), retangulo.height())
+                )
+            }
+        }
+
         for (i in 0 until node.childCount) {
             coletar(node.getChild(i), saida, nivel + 1)
         }
     }
 
-    private fun extrairMaior(regex: Regex, texto: String, minimo: Double, maximo: Double): Double? {
-        var melhor: Double? = null
-        for (achado in regex.findAll(texto)) {
+    private fun somarVizinhos(
+        nos: List<No>,
+        ancoraY: Int,
+        raioVertical: Int,
+        raioLateral: Int,
+        regex: Regex,
+        minimo: Double,
+        maximo: Double
+    ): Double {
+        var total = 0.0
+        val centroX = resources.displayMetrics.widthPixels / 2
+        for (no in nos) {
+            if (abs(no.centroY - ancoraY) > raioVertical) continue
+            if (abs(no.x + no.largura / 2 - centroX) > raioLateral * 4) continue
+            val achado = regex.find(no.texto) ?: continue
             val numero = converter(achado.groupValues[1]) ?: continue
             if (numero < minimo || numero > maximo) continue
-            if (melhor == null || numero > melhor!!) melhor = numero
+            total += numero
         }
-        return melhor
+        return total
     }
 
     private fun converter(trecho: String): Double? {
@@ -127,7 +225,8 @@ class GiguAccessibilityService : AccessibilityService() {
         min: Double,
         valorTxt: String,
         kmTxt: String,
-        minTxt: String
+        minTxt: String,
+        bruto: String
     ) {
         val custoKm = prefs.getFloat("custoKm", 1.2f).toDouble()
         val metaKm = prefs.getFloat("metaKm", 1.8f).toDouble()
@@ -185,11 +284,17 @@ class GiguAccessibilityService : AccessibilityService() {
                 textSize = 11f
                 setPadding(0, dp(3), 0, 0)
             }
+            tvDebug = TextView(contexto).apply {
+                setTextColor(0xFF5E6E88.toInt())
+                textSize = 9f
+                setPadding(0, dp(4), 0, 0)
+            }
 
             raiz.addView(tvValor)
             raiz.addView(tvDetalhe)
             raiz.addView(tvVeredito)
             raiz.addView(tvTaxas)
+            raiz.addView(tvDebug)
 
             card = raiz
         }
@@ -200,13 +305,19 @@ class GiguAccessibilityService : AccessibilityService() {
         }
 
         tvValor?.text = "R$ $valorTxt"
-        tvDetalhe?.text = if (km > 0) "$kmTxt km · $minTxt min" else "distância não lida"
+        tvDetalhe?.text = when {
+            km > 0 && min > 0 -> "$kmTxt km · $minTxt min"
+            km > 0 -> "$kmTxt km"
+            else -> "distância não lida"
+        }
         tvVeredito?.apply {
             text = veredito
             setTextColor(tinta)
         }
         tvTaxas?.text = "R$ ${String.format("%.2f", porKm).replace(".", ",")}/km · " +
             if (min > 0) "R$ ${String.format("%.2f", porHora).replace(".", ",")}/h" else "—"
+        tvDebug?.text = if (prefs.getBoolean("debug", false)) bruto else ""
+        tvDebug?.visibility = if (prefs.getBoolean("debug", false)) View.VISIBLE else View.GONE
 
         val gerenciador = janela ?: return
         val atual = card ?: return
