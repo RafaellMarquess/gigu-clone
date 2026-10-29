@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>GigU</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:#070D1A;color:#E6EDF7;font:14px/1.45 Inter,system-ui,sans-serif;padding:0 16px 24px;padding-top:env(safe-area-inset-top)}
+header{display:flex;justify-content:space-between;align-items:center;padding:14px 0}
+.logo{font-size:27px;font-weight:700;font-style:italic;letter-spacing:-1.2px;color:#FF7A00}
+.banner{background:linear-gradient(100deg,#FF5C00,#FF9A2E);border-radius:14px;padding:16px;margin-bottom:14px}
+.banner h2{margin:0 0 6px;font-size:18px;color:#fff}
+.banner p{margin:0;font-size:12.5px;color:#FFF3E8}
+.card{background:#0F1A2E;border-radius:14px;overflow:hidden;margin-bottom:14px}
+.row{display:flex;align-items:center;gap:12px;padding:16px 14px;border-bottom:1px solid #17243A}
+.row:last-child{border-bottom:0}
+.row .txt{flex:1}
+.t{font-size:16px;font-weight:600}
+.s{font-size:11.5px;color:#7C8CA6;margin-top:3px}
+.tg{width:48px;height:28px;border-radius:20px;background:#2C3B52;border:0;position:relative;flex:0 0 48px;transition:background .15s}
+.tg::after{content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#8A9AB4;transition:.15s}
+.tg.on{background:#FF6B00}
+.tg.on::after{left:23px;background:#fff}
+.hide{display:none}
+label{display:block;font-size:11.5px;color:#8A9AB4;margin-bottom:5px;font-weight:600}
+input{width:100%;background:#0D1728;border:1px solid #24354F;border-radius:10px;padding:12px;color:#E6EDF7;font:600 16px Inter,sans-serif;margin-bottom:12px}
+input:focus{outline:none;border-color:#FF6B00}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.g2 input{margin-bottom:12px}
+.verdict{border-radius:14px;padding:16px;margin-bottom:14px}
+.vl{font-size:11px;font-weight:700;letter-spacing:.6px;opacity:.85}
+.vb{font-size:30px;font-weight:700;margin:4px 0 10px}
+.vs{font-size:12px}
+.vg{background:#0E2C1C;color:#7BE7A6;border:1px solid #1E5C3A}
+.va{background:#33260A;color:#F3C46A;border:1px solid #6B5217}
+.vr{background:#331414;color:#F79A9A;border:1px solid #6E2A2A}
+.kv{display:flex;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #17243A;font-size:13px}
+.kv:last-child{border-bottom:0}
+.kv b{font-weight:600}
+.btn{width:100%;background:#FF6B00;color:#fff;border:0;border-radius:11px;padding:15px;font:700 14px Inter,sans-serif;margin-bottom:10px}
+.btn.ghost{background:#0F1A2E;border:1px solid #24354F;color:#E6EDF7}
+.stage{background:#03070F;border-radius:14px;height:190px;position:relative;overflow:hidden;display:grid;place-items:center;margin-bottom:12px}
+.stage video{width:100%;height:100%;object-fit:cover}
+.off{color:#4E5E78;font-size:12px;text-align:center;padding:0 24px}
+.rec{position:absolute;top:10px;left:10px;background:#000A;border-radius:20px;padding:4px 10px;font-size:11px;font-weight:700;display:none;align-items:center;gap:6px}
+.rec.on{display:flex}
+.dot{width:8px;height:8px;border-radius:50%;background:#EF4444;animation:p 1s infinite}
+@keyframes p{50%{opacity:.25}}
+.hid{position:absolute;width:1px;height:1px;opacity:0}
+.clip{display:flex;gap:10px;padding:11px 14px;border-bottom:1px solid #17243A;font-size:12.5px}
+.clip:last-child{border-bottom:0}
+.clip span:last-child{margin-left:auto;color:#7C8CA6}
+.foot{text-align:center;color:#5E6E88;font-size:11px;margin-top:14px}
+</style>
+</head>
+<body>
+<header><div class="logo">GigU</div></header>
+<div class="banner"><h2>Tudo liberado</h2><p>Sem assinatura. Cálculo e câmera sempre ligados.</p></div>
+
+<div class="card">
+  <div class="row"><div class="txt"><div class="t">Copiloto</div><div class="s">Ative para usar os recursos</div></div><button class="tg" id="tCop"></button></div>
+  <div class="row"><div class="txt"><div class="t">Cálculo de Ganhos</div><div class="s">Líquido por km e por hora</div></div><button class="tg" id="tCalc"></button></div>
+  <div class="row"><div class="txt"><div class="t">Câmera Secreta</div><div class="s">Grava com prévia oculta</div></div><button class="tg" id="tCam"></button></div>
+</div>
+
+<div id="secCalc" class="hide">
+  <div id="res"></div>
+  <div class="g2">
+    <div><label>Valor da oferta</label><input id="v" type="number" inputmode="decimal" placeholder="0,00"></div>
+    <div><label>Minutos</label><input id="m" type="number" inputmode="decimal" placeholder="0"></div>
+  </div>
+  <label>Distância total (km)</label><input id="k" type="number" inputmode="decimal" placeholder="0">
+  <div class="card">
+    <div class="kv"><span>Custo por km</span><b id="lc"></b></div>
+    <div class="kv"><span>Meta por km</span><b id="lk"></b></div>
+    <div class="kv"><span>Meta por hora</span><b id="lh"></b></div>
+  </div>
+</div>
+
+<div id="secCam" class="hide">
+  <div class="stage">
+    <video id="vid" autoplay muted playsinline class="hid"></video>
+    <div class="off" id="off">Toque em iniciar para gravar.</div>
+    <div class="rec" id="rec"><span class="dot"></span><span id="t">00:00</span></div>
+  </div>
+  <button class="btn" id="bIni">Iniciar gravação</button>
+  <button class="btn ghost" id="bOc">Mostrar prévia</button>
+  <div class="card" id="lista"></div>
+</div>
+
+<p class="foot">1.0 · sem assinatura</p>
+
+<script>
+var st = JSON.parse(localStorage.getItem('gigu') || '{}');
+st = Object.assign({cop:false,calc:false,cam:false,custoKm:1.2,metaKm:1.8,metaH:25,clips:[]}, st);
+function save(){ localStorage.setItem('gigu', JSON.stringify(st)); }
+function brl(n){ return 'R$ ' + (isFinite(n) ? n.toFixed(2).replace('.', ',') : '0,00'); }
+function $(i){ return document.getElementById(i); }
+
+function pintar(){
+  $('tCop').className = 'tg' + (st.cop ? ' on' : '');
+  $('tCalc').className = 'tg' + (st.calc ? ' on' : '');
+  $('tCam').className = 'tg' + (st.cam ? ' on' : '');
+  $('secCalc').className = (st.cop && st.calc) ? '' : 'hide';
+  $('secCam').className = (st.cop && st.cam) ? '' : 'hide';
+  $('lc').textContent = brl(st.custoKm);
+  $('lk').textContent = brl(st.metaKm);
+  $('lh').textContent = brl(st.metaH);
+  calc();
+}
+
+$('tCop').onclick = function(){ st.cop = !st.cop; save(); pintar(); };
+$('tCalc').onclick = function(){ st.calc = !st.calc; save(); pintar(); };
+$('tCam').onclick = function(){ st.cam = !st.cam; save(); pintar(); };
+
+function calc(){
+  var v = parseFloat($('v').value) || 0;
+  var km = parseFloat($('k').value) || 0;
+  var mn = parseFloat($('m').value) || 0;
+  if (!v || !km) { $('res').innerHTML = ''; return; }
+  var custo = km * st.custoKm;
+  var liq = v - custo;
+  var pkm = liq / km;
+  var ph = mn ? liq / (mn / 60) : 0;
+  var cls = 'vg', lab = 'ACEITAR', msg = 'Acima das duas metas.';
+  if (pkm < st.metaKm && ph < st.metaH) { cls = 'vr'; lab = 'RECUSAR'; msg = 'Abaixo das duas metas.'; }
+  else if (pkm < st.metaKm || (mn && ph < st.metaH)) { cls = 'va'; lab = 'AVALIAR'; msg = 'Só uma meta batida.'; }
+  $('res').innerHTML = '<div class="verdict ' + cls + '"><div class="vl">VEREDITO</div><div class="vb">' + lab +
+    '</div><div class="vs">' + msg + '</div></div>' +
+    '<div class="card"><div class="kv"><span>Líquido</span><b>' + brl(liq) + '</b></div>' +
+    '<div class="kv"><span>Por km</span><b>' + brl(pkm) + '</b></div>' +
+    '<div class="kv"><span>Por hora</span><b>' + (mn ? brl(ph) : '—') + '</b></div></div>';
+}
+$('v').oninput = calc; $('k').oninput = calc; $('m').oninput = calc;
+
+var stream = null, rec = null, chunks = [], t0 = 0, tick = null, oculta = false;
+
+$('bOc').onclick = function(){
+  oculta = !oculta;
+  $('vid').className = oculta ? 'hid' : '';
+  $('bOc').textContent = oculta ? 'Mostrar prévia' : 'Ocultar prévia';
+};
+
+$('bIni').onclick = async function(){
+  if (rec && rec.state === 'recording') { parar(); return; }
+  chunks = [];
+  $('bIni').textContent = 'Parar gravação';
+  $('rec').className = 'rec on';
+  t0 = Date.now();
+  tick = setInterval(function(){
+    var d = Math.floor((Date.now() - t0) / 1000);
+    $('t').textContent = ('0' + Math.floor(d / 60)).slice(-2) + ':' + ('0' + d % 60).slice(-2);
+  }, 250);
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+    $('vid').srcObject = stream;
+    $('off').style.display = 'none';
+    rec = new MediaRecorder(stream, { mimeType: 'video/webm' });
+    rec.ondataavailable = function(e){ if (e.data.size) chunks.push(e.data); };
+    rec.start(1000);
+  } catch (e) {
+    $('off').style.display = 'block';
+    $('off').textContent = 'Câmera indisponível.';
+  }
+};
+
+function parar(){
+  clearInterval(tick);
+  $('rec').className = 'rec';
+  $('bIni').textContent = 'Iniciar gravação';
+  var dur = Math.floor((Date.now() - t0) / 1000);
+  var durTxt = ('0' + Math.floor(dur / 60)).slice(-2) + ':' + ('0' + dur % 60).slice(-2);
+  if (rec && rec.state !== 'inactive') {
+    rec.onstop = function(){
+      var blob = new Blob(chunks, { type: 'video/webm' });
+      var nome = 'corrida_' + Date.now() + '.webm';
+      var fr = new FileReader();
+      fr.onload = function(){
+        var b64 = String(fr.result).split(',')[1];
+        if (window.Android) { Android.salvar(nome, b64); }
+        add(nome, durTxt);
+      };
+      fr.readAsDataURL(blob);
+      if (stream) stream.getTracks().forEach(function(t){ t.stop(); });
+      stream = null;
+    };
+    rec.stop();
+  }
+}
+
+function add(nome, dur){
+  st.clips.unshift({ nome: nome, dur: dur });
+  st.clips = st.clips.slice(0, 10);
+  save();
+  $('lista').innerHTML = st.clips.map(function(c){
+    return '<div class="clip"><span>' + c.nome + '</span><span>' + c.dur + '</span></div>';
+  }).join('');
+}
+
+pintar();
+if (st.clips.length) add('', '');
+</script>
+</body>
+</html>
