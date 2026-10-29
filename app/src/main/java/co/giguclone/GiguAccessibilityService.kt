@@ -93,10 +93,22 @@ class GiguAccessibilityService : AccessibilityService() {
     }
 
     private fun varrer() {
-        val raiz = rootInActiveWindow ?: return
-
         val nos = ArrayList<No>()
-        coletar(raiz, nos, 0)
+
+        // Varre todas as janelas visíveis, não só a "ativa": o popup de nova
+        // corrida costuma abrir numa janela separada (overlay), que não entra
+        // em rootInActiveWindow sem isto.
+        val janelasAbertas = windows
+        if (janelasAbertas != null && janelasAbertas.isNotEmpty()) {
+            for (w in janelasAbertas) {
+                val r = w.root ?: continue
+                coletar(r, nos, 0)
+            }
+        } else {
+            val raiz = rootInActiveWindow ?: return
+            coletar(raiz, nos, 0)
+        }
+
         if (nos.isEmpty()) return
 
         val tela = resources.displayMetrics
