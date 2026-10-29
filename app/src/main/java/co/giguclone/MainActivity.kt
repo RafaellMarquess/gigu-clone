@@ -2,6 +2,7 @@ package co.giguclone
 
 import android.Manifest
 import android.content.ContentValues
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -17,6 +18,7 @@ import android.webkit.WebView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import org.json.JSONObject
 
 class MainActivity : AppCompatActivity() {
 
@@ -36,13 +38,13 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(estado: Bundle?) {
         super.onCreate(estado)
 
-        // Verificar permissão de sobreposição (Janela Flutuante)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
-            val intent = Intent(
-                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                Uri.parse("package:$packageName")
+            startActivity(
+                Intent(
+                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:$packageName")
+                )
             )
-            startActivity(intent)
         }
 
         web = WebView(this)
@@ -73,9 +75,28 @@ class MainActivity : AppCompatActivity() {
 
         web.addJavascriptInterface(Ponte(), "Android")
         web.loadUrl("file:///android_asset/index.html")
+
+        GiguAccessibilityService.aoReceber = { valor, km, min ->
+            runOnUiThread {
+                val js = "window.ofertaRecebida && window.ofertaRecebida(" +
+                    JSONObject.quote(valor) + "," +
+                    JSONObject.quote(km) + "," +
+                    JSONObject.quote(min) + ")"
+                if (this::web.isInitialized) web.evaluateJavascript(js, null)
+            }
+        }
+    }
+
+    private fun acessibilidadeLigada(): Boolean {
+        val ligados = Settings.Secure.getString(
+            contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ) ?: return false
+        return ligados.contains(packageName)
     }
 
     inner class Ponte {
+
         @JavascriptInterface
         fun salvar(nome: String, base64: String) {
             try {
@@ -97,6 +118,31 @@ class MainActivity : AppCompatActivity() {
                 e.printStackTrace()
             }
         }
+
+        @JavascriptInterface
+        fun config(custoKm: String, metaKm: String, metaH: String, overlay: Boolean) {
+            getSharedPreferences("gigu", Context.MODE_PRIVATE).edit()
+                .putFloat("custoKm", custoKm.replace(",", ".").toFloatOrNull() ?: 1.2f)
+                .putFloat("metaKm", metaKm.replace(",", ".").toFloatOrNull() ?: 1.8f)
+                .putFloat("metaH", metaH.replace(",", ".").toFloatOrNull() ?: 25f)
+                .putBoolean("overlay", overlay)
+                .apply()
+        }
+
+        @JavascriptInterface
+        fun acessibilidadeAtiva(): Boolean = acessibilidadeLigada()
+
+        @JavascriptInterface
+        fun abrirAcessibilidade() {
+            runOnUiThread {
+                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        GiguAccessibilityService.aoReceber = null
+        super.onDestroy()
     }
 
     override fun onBackPressed() {
